@@ -33,6 +33,15 @@ The React/Vite frontend can be deployed to Vercel as a static site. The Rust/Axu
 
 See Vercel's [Vite deployment guide](https://vercel.com/docs/frameworks/frontend/vite) for Git-based and CLI deployment options. The API would need to be adapted to Vercel's function runtime to run there instead of on a separate service.
 
+## Free demo hosting with Render and Neon
+
+For a small demo, deploy the API as a Render Free web service and use Neon Free for PostgreSQL. Redis is optional and can be omitted. Free services have limits: Render services spin down after 15 minutes without traffic and can take about a minute to wake; Neon Free has usage and storage quotas. Render's Free PostgreSQL databases expire after 30 days, so use Neon rather than Render Postgres if you need the demo data to last longer. These free tiers are not intended for production workloads.
+
+1. Push the project to GitHub and create a Neon project on its Free plan. Copy its PostgreSQL connection string privately; do not commit it or share it.
+2. In Render, create a **Web Service** from the GitHub repository. Select the **Free** instance type, use the repository root, and choose the existing `Dockerfile`.
+3. Add these variables to the Render service: `DATABASE_URL` (the Neon connection string), `JWT_SECRET` (a new random value of at least 32 bytes), `FRONTEND_ORIGIN` (the exact public Vercel site origin), and `BASE_URL` (the Render service's public HTTPS URL). Keep `API_HOST` as `0.0.0.0`; the API uses Render's `PORT` automatically. Do not set `REDIS_URL` unless you add a Redis service.
+4. Deploy the service and wait for `/health` to return `ok`. Then set Vercel's `VITE_API_URL` to the Render public URL and redeploy the frontend.
+
 ## Run without Docker
 
 Create the local PostgreSQL role and database, then copy `.env.example` to `.env`:
@@ -57,7 +66,7 @@ npm install
 npm run dev
 ```
 
-The frontend requires Node.js 20.19+. Set `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET` (at least 32 bytes), `BASE_URL`, and `FRONTEND_ORIGIN` for the API. Redis is optional at runtime: cache connection failures are logged and URL resolution falls back to PostgreSQL.
+The frontend requires Node.js 20.19+. Set `DATABASE_URL`, `JWT_SECRET` (at least 32 bytes), `BASE_URL`, and `FRONTEND_ORIGIN` for the API. `REDIS_URL` is optional; without it, URL resolution uses PostgreSQL directly.
 
 ## API
 

@@ -214,15 +214,17 @@ async fn delete_url(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "short URL not found"));
     }
 
-    let mut connection = match state.cache.get_multiplexed_async_connection().await {
-        Ok(connection) => connection,
-        Err(error) => {
-            tracing::warn!(%error, "Redis unavailable while invalidating deleted URL");
-            return Ok(StatusCode::NO_CONTENT);
+    if let Some(cache) = &state.cache {
+        match cache.get_multiplexed_async_connection().await {
+            Ok(mut connection) => {
+                if let Err(error) = connection.del::<_, ()>(cache_key(&code)).await {
+                    tracing::warn!(%error, "failed to invalidate deleted URL cache entry");
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "Redis unavailable while invalidating deleted URL");
+            }
         }
-    };
-    if let Err(error) = connection.del::<_, ()>(cache_key(&code)).await {
-        tracing::warn!(%error, "failed to invalidate deleted URL cache entry");
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -273,24 +275,28 @@ async fn redirect(
         return Err(ApiError::new(StatusCode::NOT_FOUND, "short URL not found"));
     }
 
-    let cached = match state.cache.get_multiplexed_async_connection().await {
-        Ok(mut connection) => match connection.get::<_, String>(cache_key(&code)).await {
-            Ok(serialized) => match serde_json::from_str::<CachedUrl>(&serialized) {
-                Ok(url) => Some(url),
+    let cached = if let Some(cache) = &state.cache {
+        match cache.get_multiplexed_async_connection().await {
+            Ok(mut connection) => match connection.get::<_, String>(cache_key(&code)).await {
+                Ok(serialized) => match serde_json::from_str::<CachedUrl>(&serialized) {
+                    Ok(url) => Some(url),
+                    Err(error) => {
+                        tracing::warn!(%error, "invalid Redis URL cache entry");
+                        None
+                    }
+                },
                 Err(error) => {
-                    tracing::warn!(%error, "invalid Redis URL cache entry");
+                    tracing::debug!(%error, "Redis cache miss or unavailable");
                     None
                 }
             },
             Err(error) => {
-                tracing::debug!(%error, "Redis cache miss or unavailable");
+                tracing::debug!(%error, "Redis unavailable; resolving URL from PostgreSQL");
                 None
             }
-        },
-        Err(error) => {
-            tracing::debug!(%error, "Redis unavailable; resolving URL from PostgreSQL");
-            None
         }
+    } else {
+        None
     };
 
     let destination = if let Some(url) = cached {
@@ -362,16 +368,18 @@ async fn cache_url(state: &AppState, code: &str, url: &CachedUrl) {
             return;
         }
     };
-    match state.cache.get_multiplexed_async_connection().await {
-        Ok(mut connection) => {
-            if let Err(error) = connection
-                .set_ex::<_, _, ()>(cache_key(code), serialized, ttl as u64)
-                .await
-            {
-                tracing::warn!(%error, "failed to cache URL mapping");
+    if let Some(cache) = &state.cache {
+        match cache.get_multiplexed_async_connection().await {
+            Ok(mut connection) => {
+                if let Err(error) = connection
+                    .set_ex::<_, _, ()>(cache_key(code), serialized, ttl as u64)
+                    .await
+                {
+                    tracing::warn!(%error, "failed to cache URL mapping");
+                }
             }
+            Err(error) => tracing::warn!(%error, "Redis unavailable while caching URL mapping"),
         }
-        Err(error) => tracing::warn!(%error, "Redis unavailable while caching URL mapping"),
     }
 }
 

@@ -3,7 +3,7 @@ use std::{env, io};
 #[derive(Clone)]
 pub struct Config {
     pub database_url: String,
-    pub redis_url: String,
+    pub redis_url: Option<String>,
     pub jwt_secret: String,
     pub base_url: String,
     pub api_host: String,
@@ -24,11 +24,12 @@ impl Config {
 
         Ok(Self {
             database_url: required("DATABASE_URL")?,
-            redis_url: required("REDIS_URL")?,
+            redis_url: env::var("REDIS_URL").ok().filter(|url| !url.is_empty()),
             jwt_secret,
             base_url: required("BASE_URL")?.trim_end_matches('/').to_owned(),
             api_host: env::var("API_HOST").unwrap_or_else(|_| "0.0.0.0".to_owned()),
             api_port: env::var("API_PORT")
+                .or_else(|_| env::var("PORT"))
                 .unwrap_or_else(|_| "8080".to_owned())
                 .parse()?,
             frontend_origin: env::var("FRONTEND_ORIGIN")
