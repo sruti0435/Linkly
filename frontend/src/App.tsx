@@ -353,7 +353,7 @@ function CreateLinkModal({
       <p className="modal-intro">Give your long URL a shorter, more memorable home.</p>
       <form className="modal-form" onSubmit={submit}>
         <label>Destination URL<input type="url" required placeholder="https://example.com/your/very/long/link" value={originalUrl} onChange={(event) => setOriginalUrl(event.target.value)} /></label>
-        <label>Custom alias <span className="optional">OPTIONAL</span><div className="alias-input"><span>rusturl/</span><input maxLength={32} placeholder="summer-sale" value={alias} onChange={(event) => setAlias(event.target.value)} /></div></label>
+        <label>Custom alias <span className="optional">OPTIONAL</span><div className="alias-input"><span>linkly/</span><input maxLength={32} placeholder="summer-sale" value={alias} onChange={(event) => setAlias(event.target.value)} /></div></label>
         <label>Expiration date <span className="optional">OPTIONAL</span><input type="datetime-local" min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)} value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
         {error && <p className="alert error-alert">{error}</p>}
         <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? "Creating…" : "Create link"} <span aria-hidden="true">→</span></button></div>
@@ -458,7 +458,7 @@ function StatCard({
 }
 
 function Brand() {
-  return <div className="brand"><div className="brand-mark">r<span>.</span></div><span>rust<span className="brand-light">url</span></span></div>;
+  return <div className="brand"><div className="brand-mark">l<span>.</span></div><span>link<span className="brand-light">ly</span></span></div>;
 }
 
 export default App;
